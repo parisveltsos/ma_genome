@@ -1,0 +1,9 @@
+Used gmap version 2018-05-11 to generate gff of the transcriptome on the genome.
+
+	mkdir merc
+
+	gmap_build -d merc_genome -k 13 -D ./merc Mannua_M1_v1.4.fa
+
+	gmap -d merc_genome -D ./merc -A SexDETector_orfs.fa > 1thread_gmap.out
+
+	gmap -d merc_genome -D ./merc -f gff3_match_cdna SexDETector_orfs.fa > 1thread_gmap.gff3

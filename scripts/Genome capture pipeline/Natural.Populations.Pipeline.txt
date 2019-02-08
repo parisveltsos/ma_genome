@@ -1,0 +1,56 @@
+############## Pipeline M. annua Natural populations ####################
+
+#### 1. Trim #####
+java -jar trimmomatic-0.36.jar PE -threads 8 sample.1.fq.gz sample.2.fq.gz sample.1.pair.fq.gz sample.1.unpair.fq.gz sample.2.pair.fq.gz sample.2.unpair.fq.gz ILLUMINACLIP:TruSeq3-PE.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36
+
+#### 2. Index Genome ###
+samtools faidx genome.fa
+java  -jar picard.jar CreateSequenceDictionary R=genome.fa O=genome.dict
+
+#### 3. Align BWA Mem ####
+bwa mem genome.fa sample.1.pair.fq.gz sample.2.pair.fq.gz sample.sam
+
+#### 4. Add read Groups ####
+java  -jar picard.jar AddOrReplaceReadGroups I=sample.L1.sam O=sample.L1.RG.sort.bam SO=coordinate RGID=57:HG5FHBBXX:1 RGLB=sample RGPL=ILLUMINA RGPU=57:HG5FHBBXX:1.NATCCGTC RGSM=sample
+java  -jar picard.jar AddOrReplaceReadGroups I=sample.L2.sam O=sample.L2.RG.sort.bam SO=coordinate RGID=57:HG5FHBBXX:2 RGLB=sample RGPL=ILLUMINA RGPU=57:HG5FHBBXX:2.NATCCGTC RGSM=sample
+
+#### 5. Mark Duplicates ###
+java  -jar picard.jar MarkDuplicates I=sample.L1.RG.sort.bam  O=sample.L1.RG.sort.dedup.bam M=sample.L1.RG.sort.dedup.txt
+java  -jar picard.jar MarkDuplicates I=sample.L2.RG.sort.bam  O=sample.L2.RG.sort.dedup.bam M=sample.L2.RG.sort.dedup.txt;
+
+#### 6. Merge bam files ###
+# index bam files using samtools #
+samtools index sample.L1.RG.sort.dedup.bam &
+samtools index sample.L2.RG.sort.dedup.bam &
+# print reads to merge bamfiles #
+java -Xmx5g -jar $TACC_GATK_DIR/GenomeAnalysisTK.jar -T PrintReads -R genome.fa -I sample.L1.RG.sort.dedup.bam -I sample.L2.RG.sort.dedup.bam -o sample.clean.merge.bam &
+
+#### 7. Make pileup file ####
+samtools mpileup  -B -d 10000000 -f genome.fa  -b all.sample.bam.list.txt > all.sample.pileup
+
+#### 8. Genotype with Varscan ####
+java  -jar VarScan.v2.3.9.jar mpileup2snp all.sample.pileup  --min-coverage 10 --min-avg-qual 20 --min-reads2 3 --strand-filter 1 --p-value 0.05 --min-var-freq 0.15 --min-freq-for-hom 0.85 --output-vcf > all.sample.vcf
+java  -jar VarScan.v2.3.9.jar mpileup2cns all.sample.pileup  --min-coverage 10 --min-avg-qual 20 --strand-filter 1 --p-value 0.05 --min-var-freq 0.15 --min-freq-for-hom 0.85 --min-reads2 3 --output-vcf > all.sample.cns
+
+#### 9. Filter with VCFTools ####
+vcftools --vcf all.sample.vcf  --max-alleles 2 --remove-indels --bed sites.for.transcripts.txt --out SNPs_only --max-missing 1.0 --minDP 10 --recode --out allsample.Transcripts.SNP 
+vcftools --vcf all.sample.cns  --max-alleles 2 --remove-indels --bed sites.for.transcripts.txt --max-missing 1.0 --minDP 10 --recode --remove-filtered-all --out allsample.Transcripts.CNS 
+
+#### 10. Calculate FST with VCFTools ####
+# run per transcript #
+vcftools --vcf transcript.cns --minDP 10 --weir-fst-pop Female_list.txt --weir-fst-pop Male_list.txt  --out transcript.FST_MF.weir.fst
+
+#### 11. Obtain Allele Frequency with VCFTools ####
+# run per sample #
+vcftools --vcf allsample.Transcripts.CNS.recode.vcf --freq --minDP 10 --indv sample  --out sample 
+
+#### 12. Calculate FST, SNPDensity, and Heterozygosity in R ####
+R CMD BATCH FST.r
+R CMD BATCH SNP.Density.r
+
+## file containing transcript names + positions - All transcripts ##
+Transcript.Scaffold.Positions.All.txt
+## file containing transcript names + positions (only those assigned to an LG in the linkage map) ##
+Transcript.Scaffold.Positions.onLG.txt
+## corresponding bed file ##
+sites.for.transcripts.txt

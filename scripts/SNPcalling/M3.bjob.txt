@@ -1,0 +1,80 @@
+#!/bin/bash
+
+#BSUB -L /bin/bash
+#BSUB -o M3-output.txt
+#BSUB -e M3-error.txt
+#BSUB -J M3
+#BSUB -u parisveltsos@gmail.com
+#BSUB -N
+#BSUB -n 16
+#BSUB -R "span[ptile=16]"
+#BSUB -R "rusage[mem=20000]"
+#BSUB -M 20194304
+
+# export PATH=/software/bin:$PATH
+module use /software/module/
+# module add UHTS/Aligner/bowtie2/2.3.0;
+module add Development/java/1.8.0_121;
+module add UHTS/Analysis/picard-tools/2.2.1;
+module add UHTS/Analysis/GenomeAnalysisTK/3.7;
+module add UHTS/Aligner/bwa/0.7.13;
+module add UHTS/Analysis/samtools/1.3;
+module add R/3.3.2;
+
+
+REFERENCE=/scratch/beegfs/monthly/pveltsos/Mercurialis/reference/SDtranscriptome.fasta
+DICTIONARY=/scratch/beegfs/monthly/pveltsos/Mercurialis/reference/SDtranscriptome.fasta.dict
+READS1=/scratch/beegfs/monthly/pveltsos/Mercurialis/Parents/500M3_WTCHG_25562_05_1.fq.gz
+READS2=/scratch/beegfs/monthly/pveltsos/Mercurialis/Parents/500M3_WTCHG_25562_05_2.fq.gz
+NAME=M3
+
+mkdir /scratch/cluster/monthly/pveltsos/Mercurialis/M3
+cd /scratch/cluster/monthly/pveltsos/Mercurialis/M3
+
+echo "pipeline adapted from https://gencore.bio.nyu.edu/variant-calling-pipeline/"
+
+echo "BWA alignment, compatible with picaard and gatk"
+bwa mem -M -R '@RG\tID:$NAME\tLB:$NAME\tPL:ILLUMINA\tPM:HISEQ\tSM:$NAME' $REFERENCE $READS1 $READS2 > $NAME.sam
+
+echo "sort and convert sam to bam"
+picard-tools SortSam INPUT=$NAME.sam OUTPUT=$NAME.sorted.bam SORT_ORDER=coordinate
+
+echo "Obtain alignment and insert size metrics"
+picard-tools CollectAlignmentSummaryMetrics R=$REFERENCE I=$NAME.sorted.bam O=$NAME.alignment.metrics.txt &
+
+picard-tools CollectInsertSizeMetrics INPUT=$NAME.sorted.bam OUTPUT=$NAME.insert.metrics.txt HISTOGRAM_FILE=$NAME.insert.size.histogram.pdf &
+
+samtools depth -a $NAME.sorted.bam > $NAME.depth.txt &
+wait
+
+echo "mark duplicates"
+picard-tools MarkDuplicates INPUT=$NAME.sorted.bam OUTPUT=$NAME.dedup.bam METRICS_FILE=$NAME.metrics.txt
+
+echo "Build BAM index"
+picard-tools BuildBamIndex INPUT=$NAME.dedup.bam
+
+echo "create realignment targets"
+GenomeAnalysisTK -T RealignerTargetCreator -R $REFERENCE -I $NAME.dedup.bam -o $NAME.realignment.targets.list
+
+echo "realign indels- crashes here"
+GenomeAnalysisTK -T IndelRealigner -R $REFERENCE -I $NAME.dedup.bam -targetIntervals $NAME.realignment.targets.list -o $NAME.realigned.bam
+
+# GenomeAnalysisTK -T IndelRealigner -R $REFERENCE -I $NAME.dedup.bam -targetIntervals $NAME.realignment.targets.list -o $NAME.realigned.bam --fix_misencoded_quality_scores -fixMisencodedQuals
+
+echo “Indexing the bam file”
+samtools index $NAME.realigned.bam 
+
+# GenomeAnalysisTK -T HaplotypeCaller -R $REFERENCE -I $NAME.realigned.bam -stand_call_conf 4 -stand_emit_conf 3 -o $NAME.realigned.snps.indels.vcf --emitRefConfidence GVCF --variant_index_type LINEAR --variant_index_parameter 128000
+
+GenomeAnalysisTK -T HaplotypeCaller -R $REFERENCE -I $NAME.realigned.bam -o $NAME.realigned.snps.indels.vcf
+
+
+echo "Call variants"
+# GenomeAnalysisTK -T HaplotypeCaller -R $REFERENCE -I $NAME.realigned.bam -o $NAME.raw.variants.vcf
+
+echo "extract SNPs and indels"
+# GenomeAnalysisTK -T SelectVariants -R $REFERENCE -V $NAME.raw.variants.vcf -selectType SNP -o $NAME.raw.snps.vcf
+
+# GenomeAnalysisTK -T SelectVariants -R $REFERENCE -V $NAME.raw.variants.vcf -selectType INDEL -o $NAME.raw.indels.vcf
+
+

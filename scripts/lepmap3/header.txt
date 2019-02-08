@@ -1,0 +1,1 @@
+CHR	POS	G1	G2	fB	fC	fD	fE	fF	mA	fA	fI	fJ	fL	mB	mC	mD	mE	mF	mG	mH	mK	mM	mO	fB_2	fJ_2	fK	fL_2	fN	fO	fP	fQ	mA_2	mC_2	mD_2	mE_2	mF_2	mG_2	mI	mM_2	mR	f11	f12	f1	f3	f4	m13	m5	m6	m7	m9	pollen	f1_2	f3_2	f5	f6	f8	m11	m13_2	m2	m4	m6_2

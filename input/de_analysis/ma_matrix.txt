@@ -1,0 +1,3 @@
+model_coefficients	sex_M/F
+groupM	1
+groupF	-1
