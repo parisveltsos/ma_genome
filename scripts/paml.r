@@ -26,7 +26,7 @@ pamldata <- data.frame(merged2$Sequence, merged2$ds7..1.x, merged2$ds7..2.x, mer
 colnames(pamldata) <- c('name', 'm1xds', 'm1yds', 'm1hds', 'm1rds', 'm1xdn', 'm1ydn', 'm1hdn', 'm1rdn','m1xw', 'm1yw', 'm1hw', 'm1rw', 'm2xds', 'm2yds', 'm2hds', 'm2rds', 'm2xdn', 'm2ydn', 'm2hdn', 'm2rdn', 'm2xw', 'm2yw', 'm2hw', 'm2rw', 'topo', 'lnL_m0', 'lnL_m1', 'lnL_m2')
 
 # filter to reliable estimates
-xy <- subset(pamldata, pamldata$m2yds < 2 & pamldata$m2xds < 2 & pamldata$m2yds > 0.001 & pamldata$m2xds > 0.001 & pamldata$topo==2)
+xy <- subset(pamldata, pamldata$m2yds < 2 & pamldata$m2xds < 2 & pamldata$m2yds > 0.001 & pamldata$m2xds > 0.001 & pamldata$topo==1)
 
 par(mfrow=c(1,3)) 
 par(mar=c(5,5,4,3))

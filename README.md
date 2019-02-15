@@ -172,3 +172,11 @@ Generate a `.histo` file on a computer cluster
 	module add UHTS/Analysis/jellyfish/2.2.6; jellyfish histo fastqM1_31.counts > fastqM1_31_counts.histo
 
 Upload the resulting file in [Genomescope](http://qb.cshl.edu/genomescope/).
+
+## gff files
+
+`merc_blat.txt` generates a gff on the genome based on the transcriptome.
+
+`augustus mercurialis.sh` generates a gff by training augustus gene prediction based on the *M. annua* transcriptome, after masking the genome using the Mercurialis repeat library.
+
+
